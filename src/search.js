@@ -1,36 +1,40 @@
 import React from 'react';
 import styled from 'styled-components'
-import { SearchInput } from './search-input'
+import { Button } from './components/button'
+import { SearchInput } from './components/search-input'
 const Container = styled.div`
     border:1px solid lightgray;
     display:flex;
     flex-direction:row;
-    justify-content:space-evenly;
+    // justify-content:space-evenly;
     padding:10px 20px;
+    margin-bottom:10px;
 `;
 
 export function Search({ onSearch }) {
-    const [title, setTitle] = React.useState('')
-    const [author, setAuthor] = React.useState('')
+    const initialVal = { title: '', author: '' };
+    const [searchInput, setSearchInput] = React.useState(initialVal)
 
-    const onTitleChange = (v) => {
-        setTitle(v)
-        onSearch(v, author)
+    const onInputChange = ({ name, value }) => {
+        setSearchInput(prevData => {
+            return { ...prevData, [name]: value };
+        })
     }
-    const onAuthorChange = (v) => {
-        setAuthor(v)
-        onSearch(title, v)
+    const resetInput = () => {
+        setSearchInput(initialVal)
     }
     return (
         <Container>
             <div>Search</div>
             <div>
-                <label>Title</label>
-                <SearchInput name="title" val={title} onInputChange={onTitleChange} />
+                <SearchInput name="title" placeholder="Title" val={searchInput.title} onInputChange={onInputChange} />
             </div>
             <div>
-                <label>Author</label>
-                <SearchInput name="author" val={author} onInputChange={onAuthorChange} />
+                <SearchInput name="author" placeholder="Author" val={searchInput.author} onInputChange={onInputChange} />
+            </div>
+            <div>
+                <Button onClick={() => onSearch(searchInput)}>Search</Button>
+                <Button onClick={() => resetInput()}>Reset</Button>
             </div>
         </Container>
     )
