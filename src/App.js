@@ -5,13 +5,15 @@ import { Posts } from './posts'
 import { Search } from './search';
 import { Button } from './components/button'
 import faker from 'faker'
+
 const PAGE_SIZE = 20;
 const useMockData = false;
 function generateFakeData(pageSize) {
-  return [... new Array(pageSize)].map(elem => ({
+  return [...new Array(pageSize)].map(elem => ({
     id: faker.random.uuid(),
     title: faker.lorem.sentences(),
     author: faker.internet.userName(),
+    url: faker.internet.url(),
     created_at: faker.date.past()
   }))
 }
@@ -55,11 +57,9 @@ async function fetchPosts(pageIndex) {
   try {
     if (useMockData) {
       return new Promise(res => setTimeout(() => res(generateFakeData(PAGE_SIZE)), 1000))
-
     } else {
       const resp = await axios.get(`https://hn.algolia.com/api/v1/search_by_date?tags=story&page=${pageIndex}`);
       return resp.data.hits.slice(0, PAGE_SIZE);
-
     }
   } catch (err) {
     console.log(err)
@@ -68,36 +68,35 @@ async function fetchPosts(pageIndex) {
 
 function App() {
   const [currPage, setCurrPage] = React.useState(0)
-  const [inputTitle, setInputTitle] = React.useState('')
-  const [inputAuthor, setInputAuthor] = React.useState('')
+  const [searchInput, setSearchInput] = React.useState(null)
   const [isLoading, setLoading] = React.useState(false);
   const [data, setData] = React.useState(null);
   const [pageIndex, setPageIndex] = React.useState(0)
   const messageListRef = React.createRef();
   const bottomRef = React.createRef();
 
-  // const scrollCallback = (entries) => {
-  //   if (entries[0].isIntersecting) {
-  //     setLoading(true)
-  //     fetchPosts(pageIndex).then(resp => {
-  //       setData(prevData => [...prevData, ...resp]);
-  //       setPageIndex(pageIndex + 1)
-  //       setLoading(false);
-  //     })
-  //   }
-  // }
+  const scrollCallback = (entries) => {
+    if (entries[0].isIntersecting) {
+      setLoading(true)
+      fetchPosts(pageIndex).then(resp => {
+        setData(prevData => (prevData || []).concat(resp));
+        setPageIndex(pageIndex + 1)
+        setLoading(false);
+      })
+    }
+  }
   React.useEffect(() => {
     fetchPosts(pageIndex).then(resp => {
       setData(resp)
     })
-    // const scroll = new IntersectionObserver(scrollCallback, {
-    //   root: messageListRef.current,
-    //   // rootMargin: '10px'
-    // });
-    // scroll.observe(bottomRef.current);
-    // return () => {
-    //   scroll.disconnect();
-    // }
+    const scroll = new IntersectionObserver(scrollCallback, {
+      root: messageListRef.current,
+      rootMargin: '10px'
+    });
+    scroll.observe(bottomRef.current);
+    return () => {
+      scroll.disconnect();
+    }
     // eslint-disable-next-line
   }, [])
 
@@ -130,13 +129,12 @@ function App() {
 
     }
   }
-  const onSearch = ({ title, author }) => {
-    setInputTitle(title)
-    setInputAuthor(author)
+  const onSearch = (inputs) => {
+    setSearchInput(inputs)
   }
   let filterData = data ? [...data] : [];
-  if (inputTitle) {
-    filterData = filterByData(filterData, "title", inputTitle)
+  if (searchInput && searchInput.value) {
+    filterData = filterByField(filterData, searchInput.searchBy, searchInput.value)
   }
   const start = currPage * PAGE_SIZE;
   const end = (currPage + 1) * PAGE_SIZE;
@@ -147,7 +145,7 @@ function App() {
       <Header>Posts</Header>
       <Search onSearch={onSearch} />
       <Container ref={messageListRef}>
-        {dataPerPage.length > 0 ? (<Posts data={dataPerPage} />) : (<p>no data found</p>)}
+        {dataPerPage.length > 0 && (<Posts data={dataPerPage} />)}
         <div ref={bottomRef}>{isLoading && <Loader>Loading..</Loader>}</div>
       </Container>
       <div>
@@ -161,9 +159,8 @@ function App() {
   );
 }
 
-function filterByData(sourceData, field, searchInput) {
-  const filt = sourceData.filter(item => item[field].indexOf(searchInput) !== -1)
-  return filt;
+function filterByField(sourceData, field, searchInput) {
+  return sourceData.filter(item => item[field] && item[field].toLowerCase().indexOf(searchInput.toLowerCase()) !== -1)
 
 }
 
